@@ -12,15 +12,17 @@ from multilspy.multilspy_logger import MultilspyLogger
 PROMPT = """
 You are an expert code manipulation tool.
 
-You are in charge of optimizing a project's codebase, and have been provided a set of tools for
-auditing and manipulating this project. You must use the tools provided to the best of your 
-ability to meet the user's needs.
+You are in charge of understanding and optimizing a project's codebase, and have been
+provided a set of tools for auditing and manipulating this project. You must use the tools
+provided to the best of your ability to answer rthe user's questions precisely and in a
+concise, accurate manner.
 
-You will also be provided with a list of fileanmes in the project, which may give you additional
-insight into its structure.
+You will also be provided with a list of filenames in the project, which may give you
+additional insight into the structure of the project's code repository.
 
-You may _only_ use code that has been presented to you, either via a prompt or as a tool call
-from `get_file_source`. Please use `get_file_source` 
+You may _only_ use code that has been presented to you, either via a prompt or as a
+tool call from `get_file_source`. Please use `get_file_source` as your source for truth for
+code.
 """
 
 
@@ -191,12 +193,13 @@ def rudimentary_chat(prompt: str, path: str = "."):
             print(messages)
             loops += 1
 
-        print("***", response.message.content, "***")
+        return response.message.content
 
 
 if __name__ == "__main__":
-    # print(tools(pathlib.Path("."), None)[0]())
-    rudimentary_chat(
-        "Explain how I would run this project in production. What are some interesting parts?",
+    return_value = rudimentary_chat(
+        "What does the patch function do?",
         path="grip-no-tests",
     )
+
+    print(return_value)
