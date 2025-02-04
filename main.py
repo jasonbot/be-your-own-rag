@@ -1,3 +1,4 @@
+import functools
 import json
 import pathlib
 import typing
@@ -14,6 +15,12 @@ You are an expert code manipulation tool.
 You are in charge of optimizing a project's codebase, and have been provided a set of tools for
 auditing and manipulating this project. You must use the tools provided to the best of your 
 ability to meet the user's needs.
+
+You will also be provided with a list of fileanmes in the project, which may give you additional
+insight into its structure.
+
+You may _only_ use code that has been presented to you, either via a prompt or as a tool call
+from `get_file_source`. Please use `get_file_source` 
 """
 
 
@@ -25,7 +32,11 @@ SymbolLocation = typing.TypedDict(
 def compute_tools_for_context(
     local_path: pathlib.Path, lsp: SyncLanguageServer
 ) -> dict[str, callable]:
-    def list_files() -> list[str]:
+    """The functions in e.g. the lsp's docstrings are broken, so we're sending a wrapped
+    'bare' version to the tool calls so it gets the parameter names right.
+    """
+
+    def list_files_in_repository() -> list[str]:
         """Returns a list of all the files in the code repository"""
         file_list = []
         for path, dirs, files in local_path.walk(follow_symlinks=False):
@@ -45,7 +56,9 @@ def compute_tools_for_context(
 
         return file_list
 
-    def find_in_file(file_path: str, string_pattern: str) -> list[SymbolLocation]:
+    def find_string_in_file(
+        file_path: str, string_pattern: str
+    ) -> list[SymbolLocation]:
         """Finds a list of rows and columns a string occurs in within a file."""
         patterns = []
         if not file_path:
@@ -55,7 +68,7 @@ def compute_tools_for_context(
         if abs_path.is_relative_to(local_path):
             with open(str(abs_path), "r") as in_handle:
                 for line_number, line in enumerate(in_handle):
-                    if string_pattern in line:
+                    if string_pattern.lower() in line.lower():
                         patterns.append(
                             {
                                 "file_path": file_path,
@@ -64,52 +77,64 @@ def compute_tools_for_context(
                             }
                         )
 
-        return patterns
+        return tuple(patterns)
 
-    def find_in_repository(string_pattern: str) -> list[SymbolLocation]:
+    def find_string_in_repository(string_pattern: str) -> list[SymbolLocation]:
+        """Finds all the matching instances of a search string in the repository,
+        in all files."""
         symbols = []
-        for file in list_files():
+        for file in list_files_in_repository():
             try:
-                symbols.extend(find_in_file(file, string_pattern))
+                symbols.extend(find_string_in_file(file, string_pattern))
             except:
                 pass
-        return symbols
+
+        return tuple(symbols)
 
     def request_document_symbols(file_path: str) -> list[dict]:
-        """Gets a list of defined symbols in a file."""
+        """Gets a list of defined code symbols in a file."""
         return lsp.request_document_symbols(file_path)[0]
 
     def request_repository_symbols() -> list[dict]:
-        """Finds all symbols defined in a repository."""
+        """Finds all code symbols defined in a repository."""
         symbols = []
-        for file in list_files():
+        for file in list_files_in_repository():
             try:
                 ds = request_document_symbols(file)
                 symbols.extend(d | {"file_path": file} for d in ds)
             except Exception as e:
                 pass
-        print("SYMNOL", symbols)
-        return symbols
 
-    def request_references(file_path: str, line: int, column: int):
-        return lsp.request_references(file_path, line, column)
+        return tuple(symbols)
+
+    def request_references(file_path: str, code: str):
+        """Find all the references for a specific piece of code in a file."""
+        return [
+            lsp.request_references(file_path, pattern["row"], pattern["column"])
+            for pattern in find_string_in_file(file_path, code)
+        ]
 
     def get_file_source(file_path: str) -> str:
-        patterns = []
         if not file_path:
-            return patterns
+            return "Nothing in this file"
 
-        abs_path = local_path / file_path
-        if abs_path.is_relative_to(local_path):
-            with open(abs_path, "r") as in_handle:
-                return in_handle.read()
+        try:
+            abs_path = local_path / file_path
+            if abs_path.is_relative_to(local_path):
+                with open(abs_path, "r") as in_handle:
+                    return f"The contents of {file_path} are as following:\n```\n{in_handle.read()}\n```"
+        except:
+            pass
+
+        return f"Cannot get contents of {file_path}"
 
     return {
-        f.__name__: f
+        # functools.cache to implicitly memoize all function calls
+        f.__name__: functools.cache(f)
         for f in [
-            list_files,
-            find_in_file,
-            find_in_repository,
+            list_files_in_repository,
+            find_string_in_file,
+            find_string_in_repository,
             request_document_symbols,
             request_repository_symbols,
             request_references,
@@ -124,27 +149,35 @@ def rudimentary_chat(prompt: str, path: str = "."):
     config = MultilspyConfig.from_dict({"code_language": "python"})
     logger = MultilspyLogger()
     lsp = SyncLanguageServer.create(config, logger, str(localpath))
-    messages = [
-        {"role": "system", "content": PROMPT},
-        {
-            "role": "user",
-            "content": prompt,
-        },
-    ]
     with lsp.start_server():
         tool_dict = compute_tools_for_context(localpath, lsp)
 
-        tool_calls = True
+        messages = [
+            {"role": "system", "content": PROMPT},
+            {
+                "role": "assistant",
+                "content": f"Here are the names of all the files in the project:\n```\n{'\n'.join(tool_dict['list_files_in_repository']())}\n```",
+            },
+            {
+                "role": "user",
+                "content": prompt,
+            },
+        ]
 
-        while tool_calls:
+        made_tool_calls_in_this_loop = True
+
+        loops = 0
+
+        while made_tool_calls_in_this_loop and loops < 10:
             response = Client().chat(
                 model="llama3.2:latest",
                 tools=tool_dict.values(),
                 messages=messages,
             )
-            tool_calls = False
+            made_tool_calls_in_this_loop = False
 
             for tool in response.message.tool_calls or []:
+                print("Tool call:", tool)
                 try:
                     tool_func = tool_dict.get(tool.function.name)
                     tool_return_value = tool_func(**tool.function.arguments)
@@ -153,16 +186,17 @@ def rudimentary_chat(prompt: str, path: str = "."):
                     )
                 except Exception as e:
                     print(f"Failed to call {tool}: {e}")
-                    messages.append({"role": "tool", "content": str(e)})
-                tool_calls = True
+                    # messages.append({"role": "tool", "content": str(e)})
+                made_tool_calls_in_this_loop = True
+            print(messages)
+            loops += 1
 
-        print(messages)
         print("***", response.message.content, "***")
 
 
 if __name__ == "__main__":
     # print(tools(pathlib.Path("."), None)[0]())
     rudimentary_chat(
-        "How can I add new functions to make this code search more intelligent?",
+        "Explain how I would run this project in production. What are some interesting parts?",
         path="grip-no-tests",
     )
