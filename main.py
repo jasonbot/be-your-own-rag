@@ -3,10 +3,13 @@ import json
 import pathlib
 import typing
 
+import click
+import fastapi
 from ollama import Client
 from multilspy import SyncLanguageServer
 from multilspy.multilspy_config import MultilspyConfig
 from multilspy.multilspy_logger import MultilspyLogger
+import pydantic
 
 
 PROMPT = """
@@ -43,7 +46,7 @@ def compute_tools_for_context(
         file_list = []
         for path, dirs, files in local_path.walk(follow_symlinks=False):
             if path.name.startswith("."):
-                # Ignore dot dirs
+                # Ignore dot dirs -- don't winnow down
                 dirs.clear()
                 continue
 
@@ -145,7 +148,7 @@ def compute_tools_for_context(
     }
 
 
-def rudimentary_chat(prompt: str, path: str = "."):
+def query_repo_for_information(prompt: str, path: str = "."):
     localpath = pathlib.Path(path).absolute()
 
     config = MultilspyConfig.from_dict({"code_language": "python"})
@@ -179,7 +182,6 @@ def rudimentary_chat(prompt: str, path: str = "."):
             made_tool_calls_in_this_loop = False
 
             for tool in response.message.tool_calls or []:
-                print("Tool call:", tool)
                 try:
                     tool_func = tool_dict.get(tool.function.name)
                     tool_return_value = tool_func(**tool.function.arguments)
@@ -187,19 +189,44 @@ def rudimentary_chat(prompt: str, path: str = "."):
                         {"role": "tool", "content": json.dumps(tool_return_value)}
                     )
                 except Exception as e:
-                    print(f"Failed to call {tool}: {e}")
-                    # messages.append({"role": "tool", "content": str(e)})
+                    pass
                 made_tool_calls_in_this_loop = True
-            print(messages)
+
             loops += 1
 
         return response.message.content
 
 
-if __name__ == "__main__":
-    return_value = rudimentary_chat(
-        "What does the patch function do?",
-        path="grip-no-tests",
+class RepositoryQuery(pydantic.BaseModel):
+    question: str
+
+
+class RepositoryAnswer(pydantic.BaseModel):
+    response: str
+
+
+app = fastapi.FastAPI()
+
+
+@app.post("/query")
+def query_repo(request: RepositoryQuery) -> RepositoryAnswer:
+    return RepositoryAnswer(
+        response=query_repo_for_information(
+            prompt=request.question, path="grip-no-tests"
+        )
     )
 
-    print(return_value)
+
+if __name__ == "__main__":
+
+    @click.command()
+    @click.argument("query")
+    def main(query):
+        return_value = query_repo_for_information(
+            query,
+            path="./grip-no-tests",
+        )
+
+        print(return_value)
+
+    main()

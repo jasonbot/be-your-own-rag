@@ -1,4 +1,9 @@
+# Introduction
+
 Very rudimentary tool for analyzing a codebase.
+
+Error handling? Lol. Structure? All one file, my man. This was done with some severe
+time constraints.
 
 This assumes a model that supports tool calls -- this may be insane, but asking the
 model to 'pull' context rather than guessing/pushing context in might work better.
@@ -18,13 +23,39 @@ I think using a LSP gives me the ability to
    facts and deterministic knowledge)
 
 If I understood how tree-sitter worked that would give me a pretty cool polyglot
-thing here on the syntax of the code as well, but LSP is a better bet.
+thing here on the syntax of the code as well, but LSP is a better bet for now. I
+just wish I knew more calls I could do on it.
 
-# Create Virtualenv/Pull Model
+## Unzip `grip-no-tests` in local dir
+
+Unzip `grip-no-tets.zip` in this folder. Or edit all the hardcoded references to
+`grip-no-tests` to the full path to another
+
+## Install Ollama
+
+Go to https://ollama.com/download/ and do the thing.
+
+## Create Virtualenv/Pull Model
 
 ```shell
 pyenv virtualenv 3.12 code-assistant-intelligence
 pyenv activate code-assistant-intelligence
 pip install -r requirements.txt
 ollama pull llama3.2:latest
+```
+
+## Run service
+
+```shell
+fastapi dev main.py
+```
+
+You can go into http://127.0.0.1:8000/docs#/default/query_repo_query_post in your
+browser and type in a query.
+
+Alternately, you can run `python main.py` directly:
+
+```shell
+
+python main.py 'What does ReadmeRenderer do?'
 ```

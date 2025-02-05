@@ -170,3 +170,4 @@ cython_debug/
 # PyPI configuration file
 .pypirc
 grip-no-tests/
+__pycache__/
