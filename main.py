@@ -103,20 +103,18 @@ def compute_tools_for_context(
     def request_document_symbols(file_path: str) -> list[dict]:
         """Gets a list of defined code symbols in a file."""
         symbols = lsp.request_document_symbols(file_path)[0]
-        # This pares down the size of the symbol dict, but doesn't seem helpful.
-        for s in symbols:
-            for key in ("range", "selectionRange"):
-                if key in s:
-                    pass  # del s[key]
-        return symbols
+        return [
+            (d | {"file_path": file_path}) if isinstance(d, dict) else d
+            for d in symbols
+        ]
 
     def request_repository_symbols() -> list[dict]:
         """Finds all code symbols defined in a repository."""
         symbols = []
-        for file in list_files_in_repository():
+        for file_path in list_files_in_repository():
             try:
-                ds = request_document_symbols(file)
-                symbols.extend(d | {"file_path": file} for d in ds)
+                ds = request_document_symbols(file_path)
+                symbols.extend(ds)
             except:
                 pass
 
