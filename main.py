@@ -26,6 +26,9 @@ additional insight into the structure of the project's code repository.
 You may _only_ use code that has been presented to you, either via a prompt or as a
 tool call from `get_file_source`. Please use `get_file_source` as your source for truth for
 code.
+
+Once you have gotten the results from a tool call, please feel free to issue additional
+tool calls to further dig into the problem.
 """
 
 
@@ -99,7 +102,13 @@ def compute_tools_for_context(
 
     def request_document_symbols(file_path: str) -> list[dict]:
         """Gets a list of defined code symbols in a file."""
-        return lsp.request_document_symbols(file_path)[0]
+        symbols = lsp.request_document_symbols(file_path)[0]
+        # This pares down the size of the symbol dict, but doesn't seem helpful.
+        for s in symbols:
+            for key in ("range", "selectionRange"):
+                if key in s:
+                    pass  # del s[key]
+        return symbols
 
     def request_repository_symbols() -> list[dict]:
         """Finds all code symbols defined in a repository."""
@@ -108,7 +117,7 @@ def compute_tools_for_context(
             try:
                 ds = request_document_symbols(file)
                 symbols.extend(d | {"file_path": file} for d in ds)
-            except Exception as e:
+            except:
                 pass
 
         return tuple(symbols)
@@ -187,10 +196,16 @@ def query_repo_for_information(prompt: str, path: str = "."):
                 try:
                     tool_func = tool_dict.get(tool.function.name)
                     tool_return_value = tool_func(**tool.function.arguments)
+                    print(
+                        f"Tool call: {tool.function.name}({tool.function.arguments}) -> {tool_return_value}"
+                    )
                     messages.append(
                         {"role": "tool", "content": json.dumps(tool_return_value)}
                     )
                 except Exception as e:
+                    print(
+                        f"Tool call: {tool.function.name}({tool.function.arguments}) failed: {e}"
+                    )
                     pass
                 made_tool_calls_in_this_loop = True
 
@@ -229,6 +244,6 @@ if __name__ == "__main__":
             path="./grip-no-tests",
         )
 
-        print(return_value)
+        print(" -> ", return_value)
 
     main()
