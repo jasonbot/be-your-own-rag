@@ -26,10 +26,10 @@ If I understood how tree-sitter worked that would give me a pretty cool polyglot
 thing here on the syntax of the code as well, but LSP is a better bet for now. I
 just wish I knew more calls I could do on it.
 
-## Unzip `grip-no-tests` in local dir
+## Unzip `sample-project` in local dir
 
-Unzip `grip-no-tests.zip` in this folder. Or edit all the hardcoded references to
-`grip-no-tests` to the full path to another folder. It's up to you!
+Unzip `sample-project.zip` in this folder. Or edit all the hardcoded references to
+`sample-project` to the full path to another folder. It's up to you!
 
 ## Install Ollama
 

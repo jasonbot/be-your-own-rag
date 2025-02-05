@@ -227,7 +227,7 @@ app = fastapi.FastAPI()
 def query_repo(request: RepositoryQuery) -> RepositoryAnswer:
     return RepositoryAnswer(
         response=query_repo_for_information(
-            prompt=request.question, path="./grip-no-tests"
+            prompt=request.question, path="./sample-project"
         )
     )
 
@@ -239,7 +239,7 @@ if __name__ == "__main__":
     def main(query):
         return_value = query_repo_for_information(
             query,
-            path="./grip-no-tests",
+            path="./sample-project",
         )
 
         print(" -> ", return_value)
