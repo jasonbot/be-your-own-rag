@@ -15,7 +15,7 @@ something I am doing for fun, not for work.
 If I knew how to do raw calls to the LSP, and which ones would make sense here, that
 would let me feed the LLM some better tools.
 
-I think using a LSP gives me the ability to
+I think using a LSP gives me the ability to:
 
 1. Utilize a large library of existing community projects to handle many languages.
 2. Use the LLM for what it's good at (gluing together information in context) while
@@ -28,8 +28,8 @@ just wish I knew more calls I could do on it.
 
 ## Unzip `grip-no-tests` in local dir
 
-Unzip `grip-no-tets.zip` in this folder. Or edit all the hardcoded references to
-`grip-no-tests` to the full path to another
+Unzip `grip-no-tests.zip` in this folder. Or edit all the hardcoded references to
+`grip-no-tests` to the full path to another folder. It's up to you!
 
 ## Install Ollama
 
@@ -51,9 +51,9 @@ fastapi dev main.py
 ```
 
 You can go into http://127.0.0.1:8000/docs#/default/query_repo_query_post in your
-browser and type in a query.
+browser and type in a query. It's `curl`able too. Standard FastAPI with Pydantic.
 
-Alternately, you can run `python main.py` directly:
+Alternately, you can run `python main.py` directly as a command line utility:
 
 ```shell
 

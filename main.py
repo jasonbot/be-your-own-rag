@@ -34,6 +34,7 @@ SymbolLocation = typing.TypedDict(
 )
 
 
+# Functions to send to llama, so it can call them.
 def compute_tools_for_context(
     local_path: pathlib.Path, lsp: SyncLanguageServer
 ) -> dict[str, callable]:
@@ -148,6 +149,7 @@ def compute_tools_for_context(
     }
 
 
+# Interesting part
 def query_repo_for_information(prompt: str, path: str = "."):
     localpath = pathlib.Path(path).absolute()
 
@@ -212,7 +214,7 @@ app = fastapi.FastAPI()
 def query_repo(request: RepositoryQuery) -> RepositoryAnswer:
     return RepositoryAnswer(
         response=query_repo_for_information(
-            prompt=request.question, path="grip-no-tests"
+            prompt=request.question, path="./grip-no-tests"
         )
     )
 
